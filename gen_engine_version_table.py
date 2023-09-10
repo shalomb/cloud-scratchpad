@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 
 import json
-import re
 import sys
+
+requirements = {
+    "mariadb": "maj.min.patch",
+    "mysql": "maj.min",
+    "oracle-ee": "maj",
+    "oracle-se2": "maj",
+    "postgres": "maj.min",
+    "sqlserver-ee": "maj.min",
+    "sqlserver-se": "maj.min",
+}
 
 input_file = sys.argv[1]
 
@@ -13,41 +22,22 @@ def read_data():
     return json.loads(content)
 
 
-def parse_version(v):
+def fmt_version(v, fmt):
     v = v.split(".")
-    return {
+    t = {
         "maj": v[0],
         "min": v[1],
         "patch": v[2] if len(v) > 2 else "",
     }
+    return ".".join([t[k] for k in fmt.split(".")])
 
 
-db_versions = {}
+db_versions = {item["Engine"]: item["EngineVersion"] for item in read_data()}
 
-for line in read_data():
-    db_versions[line["Engine"]] = line["EngineVersion"]
-
-output = {}
-for engine in [
-    "mariadb",
-    "mysql",
-    "oracle-ee",
-    "oracle-se2",
-    "postgres",
-    "sqlserver-ee",
-    "sqlserver-se",
-]:
-    v = parse_version(db_versions[engine])
-
-    # default case
-    version = f"{v['maj']}"
-
-    if "oracle" in engine:
-        version = f"{v['maj']}"
-    if re.match("mysql|postgres|sqlserver", engine):
-        version = f"{v['maj']}.{v['min']}"
-    if "mariadb" in engine:
-        version = f"{v['maj']}.{v['min']}.{v['patch']}"
-    output[engine] = version
-
-print(json.dumps(output, sort_keys=True, indent=2))
+print(
+    json.dumps(
+        {k: fmt_version(db_versions[k], v) for k, v in requirements.items()},
+        sort_keys=True,
+        indent=2,
+    )
+)
