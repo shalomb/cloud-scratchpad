@@ -1,9 +1,0 @@
-{
-  "mariadb": "10.11.4",
-  "mysql": "8.0",
-  "oracle-ee": "19",
-  "oracle-se2": "19",
-  "postgres": "15.3",
-  "sqlserver-ee": "15.00",
-  "sqlserver-se": "15.00"
-}
