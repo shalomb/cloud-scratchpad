@@ -1,6 +1,6 @@
 {
   "mariadb": "10.11.5",
-  "mysql": "7.0",
+  "mysql": "8.0",
   "oracle-ee": "19",
   "oracle-se2": "19",
   "postgres": "15.4",
