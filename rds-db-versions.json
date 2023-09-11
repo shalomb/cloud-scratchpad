@@ -61,6 +61,10 @@
     },
     {
         "Engine": "aurora-mysql",
+        "EngineVersion": "8.0.mysql_aurora.3.03.2"
+    },
+    {
+        "Engine": "aurora-mysql",
         "EngineVersion": "8.0.mysql_aurora.3.04.0"
     },
     {
@@ -333,6 +337,10 @@
     },
     {
         "Engine": "mariadb",
+        "EngineVersion": "10.4.31"
+    },
+    {
+        "Engine": "mariadb",
         "EngineVersion": "10.5.16"
     },
     {
@@ -354,6 +362,10 @@
     {
         "Engine": "mariadb",
         "EngineVersion": "10.5.21"
+    },
+    {
+        "Engine": "mariadb",
+        "EngineVersion": "10.5.22"
     },
     {
         "Engine": "mariadb",
@@ -381,7 +393,15 @@
     },
     {
         "Engine": "mariadb",
+        "EngineVersion": "10.6.15"
+    },
+    {
+        "Engine": "mariadb",
         "EngineVersion": "10.11.4"
+    },
+    {
+        "Engine": "mariadb",
+        "EngineVersion": "10.11.5"
     },
     {
         "Engine": "mysql",
