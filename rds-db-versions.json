@@ -1,5 +1,5 @@
 {
-  "mariadb": "9.11.5",
+  "mariadb": "10.11.5",
   "mysql": "8.0",
   "oracle-ee": "19",
   "oracle-se2": "19",
