@@ -1,0 +1,195 @@
+---
+
+name: Run RDS ORC Checks
+
+# Prerequisities
+
+# - Installation of this GH workflow into the IaC github repo
+#   - Bake this into cse-team-terraform-iac-template
+#   - Instantiate IaC repo from template
+
+# - Github OIDC Identity Provider in functional account
+#   - Provisioned by TakedaRDS BB?
+
+# - RDS "Metadata Reader" IAM Role + Policy
+#   - Provisioned by TakedaRDS BB?
+
+# AWS_ACCOUNT_ID required for role-to-assume
+#   - Use Vault OIDC access to aws TerraformIaC role?
+#     - Similar to the way Terraform discovers credentials
+#     - Will require a OIDC provider (+client?) + policies
+#   - aws sts get-caller-identity --ouput json | jq -Scer .Account
+
+
+on:
+  push:
+    branches:
+      - main
+
+# permission can be added at job level or workflow level
+permissions:
+  id-token: write   # This is required for requesting the JWT
+  contents: read    # This is required for actions/checkout
+
+env:
+  TFE_HOSTNAME: 'terraform.example.com'
+#   TFE_TOKEN: ${{secrets.TF_API_TOKEN}}
+  TF_CLI_ARGS: "-no-color"
+  TF_CLI_ARGS_apply: "-input=false -auto-approve -lock=true"
+  TF_CLI_ARGS_plan: "-input=false -refresh=true -lock=true"
+  TF_CLI_VERSION: 1.3.9
+  TF_IGNORE: trace
+  TF_INPUT: 0
+  TF_IN_AUTOMATION: true
+  TF_LOG: 'off'
+  TF_LOG_PATH: ./terraform.log
+  TF_REGISTRY_CLIENT_TIMEOUT: 28
+  TF_REGISTRY_DISCOVERY_RETRY: 10
+#   VAULT_ADDR: 'https://vault.ent.aws.takeda.io'
+#   VAULT_FORMAT: 'json'
+#   VAULT_SECRET_ID: ${{secrets.VAULT_SECRET_ID}}
+#   VAULT_SKIP_VERIFY: true
+
+# Prerequisites
+
+jobs:
+  update_rds_versions:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: .github/workflows
+    steps:
+
+      - name: Checkout tools repo
+        uses: actions/checkout@v3
+        # with:
+        #   repository: oneTakeda/terraform-aws-TakedaNLBProvisioner
+        #   token: ${{ secrets.my_pat }}
+        #   ref: refs/heads/main
+
+      # OIDC Identity Provider
+      # https://us-east-1.console.aws.amazon.com/iamv2/home?region=us-east-1#/identity_providers/details/OPENID/arn%3Aaws%3Aiam%3A%3A012096835438%3Aoidc-provider%2Ftoken.actions.githubusercontent.com
+
+      # https://github.com/unfunco/terraform-aws-oidc-github#references
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/RDSDBVersionDescriber
+          # role-to-assume: arn:aws:iam::938988851154:role/RDSDBVersionDescriber
+          role-session-name: RDSDescribeDBEngineVersions
+          aws-region: us-east-1
+
+      - name: Test STS caller identity
+        run: aws sts get-caller-identity
+
+      # https://developer.hashicorp.com/terraform/tutorials/automation/github-actions
+      - name: Setup terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+          terraform_version: ${{ env.TF_CLI_VERSION }}
+          # cli_config_credentials_hostname: ${{ env.TF_HOSTNAME }}
+          # cli_config_credentials_token:    ${{ secrets.TF_API_TOKEN }}
+
+      - name: Terraform init
+        working-directory: ${{ steps.wksp_dir.outputs.path }}
+        run: >
+          pwd;
+          ln -svf ../*.tf "$PWD"/;
+          terraform init -upgrade;
+
+      - name: Terraform validate
+        working-directory: ${{ steps.wksp_dir.outputs.path }}
+        run: >
+          pwd;
+          terraform validate
+
+      - name: Terraform output -json
+        working-directory: ${{ steps.wksp_dir.outputs.path }}
+        run: >
+          pwd;
+          terraform output -json | tee /tmp/tf_outputs.json
+
+      - name: Locate RDS resources from TF output
+
+      - name: Invoke RDS ORC Script for each RDS resource
+        # Exclude RDS resources already in production
+
+      - name: Parse ORC Script Outputs
+        if: always()
+        # Rule out false-negatives
+
+      - name: Notify DBCoE
+        id: notify_dbcoe
+        if: github.event_name == 'pull_request'
+        # Considerations
+        #   - only send for resources provisioned after some date
+        #   - to avoid bombarding DBCoE for resources provisioned prior
+        #   - that were already accepted into support
+        # TO: DBCOE DLs
+        # CC: CSE-Team
+        # TEC Env:           # from state
+        # Reply to:          ${{ github.event.pull_request.user.login }}
+        # Environment:
+        # Application name:
+        # APMS-ID:
+        # Region: ??
+        # Type:
+        # Date:
+        # PR:     ${{ github.event_name == 'pull_request' }} ${{ github.event.number }}
+
+      - name: Update table of RDS resources in production
+        if: steps.notify_dbcoe.outcome == 'success'
+        # resource id, region, type, date, ${{ github.event.number }}
+
+      # Requires
+      # SMTP Relay
+      # Auth?
+      - name: Send mail
+        uses: dawidd6/action-send-mail@v3
+        with:
+          # Specify connection via URL (replaces server_address, server_port, secure,
+          # username and password)
+          #
+          # Format:
+          #
+          #  * smtp://user:password@server:port
+          #  * smtp+starttls://user:password@server:port
+          connection_url: ${{secrets.MAIL_CONNECTION}}
+          # Required mail server address if not connection_url:
+          server_address: smtp.gmail.com
+          # Server port, default 25:
+          server_port: 465
+          # Optional whether this connection use TLS (default is true if server_port is 465)
+          secure: true
+          # Optional (recommended) mail server username:
+          username: ${{secrets.MAIL_USERNAME}}
+          # Optional (recommended) mail server password:
+          password: ${{secrets.MAIL_PASSWORD}}
+          # Required mail subject:
+          subject: Github Actions job result
+          # Required recipients' addresses:
+          to: obiwan@example.com,yoda@example.com
+          # Required sender full name (address can be skipped):
+          from: Luke Skywalker # <user@example.com>
+          # Optional plain body:
+          body: Build job of ${{github.repository}} completed successfully!
+          # Optional HTML body read from file:
+          html_body: file://README.html
+          # Optional carbon copy recipients:
+          cc: kyloren@example.com,leia@example.com
+          # Optional blind carbon copy recipients:
+          bcc: r2d2@example.com,hansolo@example.com
+          # Optional recipient of the email response:
+          reply_to: luke@example.com
+          # Optional Message ID this message is replying to:
+          in_reply_to: <random-luke@example.com>
+          # Optional unsigned/invalid certificates allowance:
+          ignore_cert: true
+          # Optional converting Markdown to HTML (set content_type to text/html too):
+          convert_markdown: true
+          # Optional attachments:
+          attachments: attachments.zip,git.diff,./dist/static/*.js
+          priority: normal
+
